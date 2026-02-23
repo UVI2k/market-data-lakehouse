@@ -1,0 +1,55 @@
+project:
+  name: "market-data-lakehouse"
+  timezone: "UTC"
+
+paths:
+  lake_root: "data_lake"
+  bronze:
+    sector_indexes_raw: "data_lake/raw/sector_indexes"
+  silver:
+    sector_indexes: "data_lake/processed/sector_indexes.parquet"
+  gold:
+    weekly_sector_rankings: "data_lake/gold/weekly_sector_rankings.parquet"
+    latest_top_sectors_json: "data_lake/gold/latest_top_sectors.json"
+
+ingestion:
+  provider: "yfinance"
+  sector_indexes:
+    start_date: "2015-01-01"
+    interval: "1d"
+    symbols:
+      XLB: "Materials"
+      XLC: "Communication Services"
+      XLE: "Energy"
+      XLF: "Financials"
+      XLI: "Industrials"
+      XLK: "Information Technology"
+      XLP: "Consumer Staples"
+      XLU: "Utilities"
+      XLV: "Health Care"
+      XLY: "Consumer Discretionary"
+      XLRE: "Real Estate"
+
+silver:
+  sector_indexes:
+    expected_columns: ["symbol","date","open","high","low","close","adj_close","volume","sector"]
+    dedup_keys: ["symbol","date"]
+    sort_keys: ["symbol","date"]
+
+gold:
+  sector_rankings:
+    resample_rule: "W-FRI"
+    lookback_weeks: 12
+    score_weights:
+      return: 1.0
+      volatility: -0.30
+      drawdown: 0.20
+    top_n: 5
+
+quality:
+  sector_indexes:
+    freshness_days: 7
+    max_null_rate:
+      adj_close: 0.02
+      volume: 0.05
+    non_negative_columns: ["open","high","low","close","adj_close","volume"]

@@ -1,0 +1,16 @@
+# Python
+
+__pycache__/
+*.pyc
+.venv/
+
+# Data lake (ignore large data)
+data_lake/raw/
+data_lake/processed/
+data_lake/gold/
+
+# Logs
+logs/
+
+# OS
+.DS_Store
