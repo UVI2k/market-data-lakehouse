@@ -7,7 +7,7 @@ import streamlit as st
 from src.utils.config import load_config
 
 
-st.set_page_config(page_title="Sector Rotation Dashboard", layout="wide")
+st.set_page_config(page_title="Investment Portfolio Management Assistant", layout="wide")
 
 
 @st.cache_data
@@ -21,7 +21,7 @@ def load_rankings(parquet_path: str) -> pd.DataFrame:
 
 
 def main() -> None:
-    st.title("📈 Sector Rotation Dashboard")
+    st.title("Investment Portfolio Management Assistant")
     st.caption("Built from your Bronze → Silver → Gold data pipeline")
 
     # Load config
@@ -77,49 +77,48 @@ def main() -> None:
     c3.metric("Best Return", f'{top_df.iloc[0][ret_col]*100:.2f}%')
 
     # Table
+    table_df = top_df[["rank", "sector", "symbol", ret_col, vol_col, dd_col, "score"]].copy()
+
+    table_df[ret_col] = table_df[ret_col] * 100
+    table_df[dd_col] = table_df[dd_col] * 100
+
     st.dataframe(
-        top_df[["rank", "sector", "symbol", ret_col, vol_col, dd_col, "score"]]
-        .rename(columns={
-            ret_col: f"Return ({lookback_weeks}w)",
+        table_df.rename(columns={
+            ret_col: f"Return ({lookback_weeks}w) %",
             vol_col: f"Volatility ({lookback_weeks}w)",
-            dd_col: f"Drawdown ({lookback_weeks}w)",
-        }),
+            dd_col: f"Drawdown ({lookback_weeks}w) %",
+            }),
         use_container_width=True,
         hide_index=True,
     )
 
     # Charts
-    st.subheader("📊 Score & Return (Top Sectors)")
+    st.subheader("📊 Return % Comparison (Top Sectors)")
 
-    left, right = st.columns(2)
-
-    with left:
-        score_series = top_df.set_index("sector")["score"]
-        st.bar_chart(score_series)
-
-    with right:
-        ret_series = top_df.set_index("sector")[ret_col]
-        st.bar_chart(ret_series)
+    ret_series_pct = (top_df.set_index("sector")[ret_col] * 100)
+    st.bar_chart(ret_series_pct)
 
     st.subheader("📉 Sector Trend")
 
-    # Sector selector
     sector_list = sorted(rankings["sector"].dropna().unique())
     selected_sector = st.selectbox("Select sector for trend", sector_list)
 
     sector_df = rankings[rankings["sector"] == selected_sector].sort_values("week_end")
 
-    c1, c2 = st.columns(2)
+    latest_close = sector_df["weekly_close"].iloc[-1]
+    st.metric("Latest Weekly Close (USD)", f"${latest_close:,.2f}")
 
-    with c1:
-        st.write("Weekly Close")
-        price_series = sector_df.set_index("week_end")["weekly_close"]
-        st.line_chart(price_series)
+    # Time window filter
+    window_label = st.selectbox("Time window", ["1M", "3M", "1Y", "All"], index=1)
 
-    with c2:
-        st.write("Rank Over Time (lower = better)")
-        rank_series = sector_df.set_index("week_end")["rank"]
-        st.line_chart(rank_series)
+    weeks_map = {"1M": 4, "3M": 13, "1Y": 52}
+    if window_label != "All":
+        n_weeks = weeks_map[window_label]
+        sector_df = sector_df.tail(n_weeks)
+
+    st.write("Weekly Close (USD)")
+    price_df = sector_df.set_index("week_end")[["weekly_close"]].rename(columns={"weekly_close": "USD"})
+    st.line_chart(price_df)
 
 if __name__ == "__main__":
     main()
